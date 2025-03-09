@@ -95,7 +95,7 @@
 
 <script>
 // 动态添加输入框
-function addInput(sectionId) {
+window.addInput = function(sectionId) {
     const section = document.getElementById(sectionId);
     const div = document.createElement('div');
     div.className = 'input-group';
@@ -104,10 +104,10 @@ function addInput(sectionId) {
         <input type="number" placeholder="HR (Hazard Ratio)">
     `;
     section.appendChild(div);
-}
+};
 
 // 动态获取前端输入，生成决策矩阵和疗法名称数组
-function getDecisionMatrixAndTherapies() {
+window.getDecisionMatrixAndTherapies = function() {
     const osInputs = document.querySelectorAll('#os-inputs .input-group');
     const pfsInputs = document.querySelectorAll('#pfs-inputs .input-group');
     const saeInputs = document.querySelectorAll('#sae-inputs .input-group');
@@ -128,23 +128,23 @@ function getDecisionMatrixAndTherapies() {
     });
 
     return { therapies, decisionMatrix };
-}
+};
 
 // 默认权重设置 (OS, PFS, SAE)
 const defaultWeights = [1 / 3, 1 / 3, 1 / 3];
 
 // 获取权重 (优先用户输入，没有则使用默认值)
-function getWeights() {
+window.getWeights = function() {
     const osWeight = parseFloat(document.querySelector('input[placeholder="OS 权重"]').value) || defaultWeights[0];
     const pfsWeight = parseFloat(document.querySelector('input[placeholder="PFS 权重"]').value) || defaultWeights[1];
     const saeWeight = parseFloat(document.querySelector('input[placeholder="SAE 权重"]').value) || defaultWeights[2];
 
     const sum = osWeight + pfsWeight + saeWeight;
     return [osWeight / sum, pfsWeight / sum, saeWeight / sum];
-}
+};
 
 // 归一化决策矩阵
-function normalizeMatrix(matrix) {
+window.normalizeMatrix = function(matrix) {
     const columnSums = matrix[0].map((_, colIndex) =>
         matrix.reduce((sum, row) => sum + row[colIndex], 0)
     );
@@ -152,17 +152,17 @@ function normalizeMatrix(matrix) {
     return matrix.map(row =>
         row.map((value, colIndex) => value / columnSums[colIndex])
     );
-}
+};
 
 // 计算加权归一化决策矩阵
-function weightedNormalizedMatrix(normalizedMatrix, weights) {
+window.weightedNormalizedMatrix = function(normalizedMatrix, weights) {
     return normalizedMatrix.map(row =>
         row.map((value, colIndex) => value * weights[colIndex])
     );
-}
+};
 
 // 计算正理想解 (PIS) 和负理想解 (NIS)
-function calculateIdealSolutions(weightedMatrix) {
+window.calculateIdealSolutions = function(weightedMatrix) {
     const PIS = weightedMatrix[0].map((_, colIndex) =>
         Math.max(...weightedMatrix.map(row => row[colIndex]))
     );
@@ -172,10 +172,10 @@ function calculateIdealSolutions(weightedMatrix) {
     );
 
     return { PIS, NIS };
-}
+};
 
 // 计算正理想距离 (PID) 和负理想距离 (NID)
-function calculateDistances(weightedMatrix, PIS, NIS) {
+window.calculateDistances = function(weightedMatrix, PIS, NIS) {
     const PID = weightedMatrix.map(row =>
         Math.sqrt(row.reduce((sum, value, index) => sum + Math.pow(PIS[index] - value, 2), 0))
     );
@@ -185,19 +185,19 @@ function calculateDistances(weightedMatrix, PIS, NIS) {
     );
 
     return { PID, NID };
-}
+};
 
 // 计算相对重要性指数 (Q_i)
-function calculateQScores(weightedMatrix, PIS, NIS) {
+window.calculateQScores = function(weightedMatrix, PIS, NIS) {
     const { PID, NID } = calculateDistances(weightedMatrix, PIS, NIS);
     return PID.map((pid, i) => {
         const nid = NID[i];
         return nid / (pid + nid);
     });
-}
+};
 
 // 计算排名 (基于用户权重或默认权重)
-function calculateRanking() {
+window.calculateRanking = function() {
     const { therapies, decisionMatrix } = getDecisionMatrixAndTherapies();
     if (therapies.length === 0) {
         alert("请至少填写一个疗法名称和对应HR值!");
@@ -217,10 +217,10 @@ function calculateRanking() {
 
     const resultElement = document.getElementById('result');
     resultElement.innerHTML = ranking.map(r => `<p>${r.therapy}: Q Score = ${r.score}</p>`).join('');
-}
+};
 
 // 一键出图功能 (弹窗显示 Chart.js 图表)
-function generateChart() {
+window.generateChart = function() {
     const { therapies, decisionMatrix } = getDecisionMatrixAndTherapies();
     if (therapies.length === 0) {
         alert("请至少填写一个疗法名称和对应HR值!");
@@ -282,7 +282,7 @@ function generateChart() {
 </html>
 `);
     newWin.document.close();
-}
+};
 </script>
 
 </body>
