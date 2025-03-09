@@ -174,10 +174,12 @@ function calculateIdealSolutions(matrix) {
 
 // 计算正理想距离 (PID) 和负理想距离 (NID)
 function calculateDistances(matrix, PIS, NIS) {
+    // 正理想距离: 距离最大值 (PIS)
     const PID = matrix.map(row =>
-        Math.sqrt(row.reduce((sum, value, index) => sum + Math.pow(value - PIS[index], 2), 0))
+        Math.sqrt(row.reduce((sum, value, index) => sum + Math.pow(PIS[index] - value, 2), 0))
     );
 
+    // 负理想距离: 距离最小值 (NIS)
     const NID = matrix.map(row =>
         Math.sqrt(row.reduce((sum, value, index) => sum + Math.pow(value - NIS[index], 2), 0))
     );
@@ -214,7 +216,7 @@ function calculateRanking() {
     const resultElement = document.getElementById('result');
     resultElement.innerHTML = ranking.map(r => `<p>${r.therapy}: Q Score = ${r.score}</p>`).join('');
 }
-
+        
 // 生成图表数据 (用于一键出图)
 function generateChart() {
     const { therapies, decisionMatrix } = getDecisionMatrixAndTherapies();
