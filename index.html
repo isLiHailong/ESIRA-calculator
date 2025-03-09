@@ -102,18 +102,136 @@
             `;
             section.appendChild(div);
         }
+        
+        // 动态获取前端输入，生成决策矩阵和疗法名称数组
+function getDecisionMatrixAndTherapies() {
+    const osInputs = document.querySelectorAll('#os-inputs .input-group');
+    const pfsInputs = document.querySelectorAll('#pfs-inputs .input-group');
+    const saeInputs = document.querySelectorAll('#sae-inputs .input-group');
 
-        // 示例：计算排名的逻辑 (占位)
-        function calculateRanking() {
-            document.getElementById('result').innerText = '计算结果示例：100';
-        }
+    const therapies = [];
+    const decisionMatrix = [];
 
-        // 示例：出图逻辑 (占位)
-        function generateChart() {
-            alert('一键出图功能暂未实现');
+    osInputs.forEach((inputGroup, index) => {
+        const therapyName = inputGroup.querySelector('input[type="text"]').value.trim();
+        const osHr = parseFloat(inputGroup.querySelector('input[type="number"]').value) || 0;
+        const pfsHr = parseFloat(pfsInputs[index]?.querySelector('input[type="number"]').value) || 0;
+        const saeHr = parseFloat(saeInputs[index]?.querySelector('input[type="number"]').value) || 0;
+
+        if (therapyName) {
+            therapies.push(therapyName);
+            decisionMatrix.push([osHr, pfsHr, saeHr]);
         }
+    });
+
+    return { therapies, decisionMatrix };
+}
+
+// 默认权重设置 (OS, PFS, SAE)
+const defaultWeights = [1 / 3, 1 / 3, 1 / 3];
+
+// 获取权重 (优先用户输入，没有则使用默认值)
+function getWeights() {
+    const osWeight = parseFloat(document.querySelector('input[placeholder="OS 权重"]').value) || defaultWeights[0];
+    const pfsWeight = parseFloat(document.querySelector('input[placeholder="PFS 权重"]').value) || defaultWeights[1];
+    const saeWeight = parseFloat(document.querySelector('input[placeholder="SAE 权重"]').value) || defaultWeights[2];
+
+    const sum = osWeight + pfsWeight + saeWeight;
+    return [osWeight / sum, pfsWeight / sum, saeWeight / sum];
+}
+
+// 归一化决策矩阵
+function normalizeMatrix(matrix) {
+    const columnSums = matrix[0].map((_, colIndex) =>
+        matrix.reduce((sum, row) => sum + row[colIndex], 0)
+    );
+
+    return matrix.map(row =>
+        row.map((value, colIndex) => value / columnSums[colIndex])
+    );
+}
+
+// 计算加权归一化决策矩阵
+function weightedNormalizedMatrix(normalizedMatrix, weights) {
+    return normalizedMatrix.map(row =>
+        row.map((value, colIndex) => value * weights[colIndex])
+    );
+}
+
+// 计算正理想解 (PIS) 和负理想解 (NIS)
+function calculateIdealSolutions(matrix) {
+    const PIS = matrix[0].map((_, colIndex) =>
+        Math.max(...matrix.map(row => row[colIndex]))
+    );
+    const NIS = matrix[0].map((_, colIndex) =>
+        Math.min(...matrix.map(row => row[colIndex]))
+    );
+    return { PIS, NIS };
+}
+
+// 计算正理想距离 (PID) 和负理想距离 (NID)
+function calculateDistances(matrix, PIS, NIS) {
+    const PID = matrix.map(row =>
+        Math.sqrt(row.reduce((sum, value, index) => sum + Math.pow(value - PIS[index], 2), 0))
+    );
+
+    const NID = matrix.map(row =>
+        Math.sqrt(row.reduce((sum, value, index) => sum + Math.pow(value - NIS[index], 2), 0))
+    );
+
+    return { PID, NID };
+}
+
+// 计算相对重要性指数 (Q_i)
+function calculateQScores(normalizedMatrix, weights, PIS, NIS) {
+    const weightedMatrix = weightedNormalizedMatrix(normalizedMatrix, weights);
+    const { PID, NID } = calculateDistances(weightedMatrix, PIS, NIS);
+
+    return PID.map((pid, i) => {
+        const nid = NID[i];
+        return nid / (pid + nid);  // Q_i 计算公式
+    });
+}
+
+// 计算排名 (基于用户权重或默认权重)
+function calculateRanking() {
+    const { therapies, decisionMatrix } = getDecisionMatrixAndTherapies();
+    const weights = getWeights();
+    const normalizedMatrix = normalizeMatrix(decisionMatrix);
+    const { PIS, NIS } = calculateIdealSolutions(normalizedMatrix);
+    const qScores = calculateQScores(normalizedMatrix, weights, PIS, NIS);
+
+    // 生成排名结果
+    const ranking = therapies.map((therapy, index) => ({
+        therapy,
+        score: qScores[index].toFixed(4)
+    })).sort((a, b) => b.score - a.score);
+
+    // 显示结果
+    const resultElement = document.getElementById('result');
+    resultElement.innerHTML = ranking.map(r => `<p>${r.therapy}: Q Score = ${r.score}</p>`).join('');
+}
+
+// 生成图表数据 (用于一键出图)
+function generateChart() {
+    const { therapies, decisionMatrix } = getDecisionMatrixAndTherapies();
+    const weightSteps = Array.from({ length: 11 }, (_, i) => i * 0.1);
+    const chartData = therapies.map((therapy, index) => {
+        const qScores = weightSteps.map(efficacyWeight => {
+            const weights = [efficacyWeight / 2, efficacyWeight / 2, 1 - efficacyWeight];
+            const normalizedMatrix = normalizeMatrix(decisionMatrix);
+            const { PIS, NIS } = calculateIdealSolutions(normalizedMatrix);
+            const qScores = calculateQScores(normalizedMatrix, weights, PIS, NIS);
+            return qScores[index];
+        });
+
+        return { label: therapy, data: qScores };
+    });
+
+    console.log('图表数据:', chartData);
+    alert('图表数据已生成，在控制台查看！');
+}
     </script>
 </body>
 </html>
-
 
