@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <title>ESIRA Calculator</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/chart.js/3.7.1/chart.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.7.1/dist/chart.min.js"></script>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -103,6 +103,15 @@
     </section>
 
     <script>
+        // 确保在页面加载完成后执行js
+        document.addEventListener('DOMContentLoaded', function() {
+            // 检查Chart.js是否已加载
+            if (typeof Chart === 'undefined') {
+                console.error('Chart.js未加载，图表功能将不可用');
+                alert('警告：图表库未能加载，图表功能将不可用。请检查网络连接或使用本地Chart.js文件。');
+            }
+        });
+
         // 生成动态颜色的函数
         function generateColors(count) {
             return Array.from({length: count}, (_, i) => 
@@ -224,8 +233,25 @@
         }
 
         // 在不同权重下计算Q Score的函数
-        function calculateQScoreAtWeight(decisionMatrix, therapies, weight) {
-            const weights = [weight, 1 - weight, 0];  // OS weight, 1-OS weight for PFS, 0 for SAE
+        function calculateQScoreAtWeight(decisionMatrix, therapies, efficacyWeight) {
+            // efficacyWeight表示OS+PFS的总权重
+            // 剩余的weight给到SAE
+            const saeWeight = 1 - efficacyWeight;
+            
+            // 获取当前OS和PFS的权重，用于计算相对比例
+            const osInputValue = parseFloat(document.querySelector('input[placeholder="OS 权重"]').value) || defaultWeights[0];
+            const pfsInputValue = parseFloat(document.querySelector('input[placeholder="PFS 权重"]').value) || defaultWeights[1];
+            
+            // 计算OS和PFS的相对比例
+            const osRatio = osInputValue / (osInputValue + pfsInputValue);
+            const pfsRatio = pfsInputValue / (osInputValue + pfsInputValue);
+            
+            // 根据efficacyWeight分配OS和PFS的权重
+            const osWeight = efficacyWeight * osRatio;
+            const pfsWeight = efficacyWeight * pfsRatio;
+            
+            // 最终的权重数组
+            const weights = [osWeight, pfsWeight, saeWeight];
             
             // 归一化
             const normalizedMatrix = normalizeMatrix(decisionMatrix);
@@ -283,77 +309,110 @@
 
         // 一键出图函数
         function generateChart() {
-            // 首先确保已经有输入数据
-            const { therapies, decisionMatrix } = getDecisionMatrixAndTherapies();
-            if (therapies.length === 0) {
-                alert("请至少填写一个疗法名称和对应HR值!");
-                return;
-            }
+            console.log("开始生成图表");
+            try {
+                // 首先确保已经有输入数据
+                const { therapies, decisionMatrix } = getDecisionMatrixAndTherapies();
+                console.log("获取到的数据:", therapies, decisionMatrix);
+                
+                if (therapies.length === 0) {
+                    alert("请至少填写一个疗法名称和对应HR值!");
+                    return;
+                }
 
-            // 准备权重数据点（0到1，间隔0.1）
-            const weightPoints = [0, 0.1, 0.25, 0.5, 0.75, 1];
+                // 检查Chart是否已加载
+                if (typeof Chart === 'undefined') {
+                    alert("图表库未能加载，无法生成图表。请检查网络连接或使用本地Chart.js文件。");
+                    console.error("Chart is undefined, cannot generate chart");
+                    return;
+                }
 
-            // 为每个疗法计算不同权重下的Q分数
-            const datasets = therapies.map((therapy, index) => {
-                const data = weightPoints.map(weight => 
-                    calculateQScoreAtWeight(decisionMatrix, therapies, weight)[index]
-                );
-
-                return {
-                    label: therapy,
-                    data: data,
-                    borderColor: generateColors(therapies.length)[index],
-                    backgroundColor: 'transparent',
-                    tension: 0.1  // 略微弯曲的线条
-                };
-            });
-
-            // 获取图表容器
-            const ctx = document.getElementById('rankingChart').getContext('2d');
-
-            // 如果已经存在图表，先销毁
-            if (window.rankingChartInstance) {
-                window.rankingChartInstance.destroy();
-            }
-
-            // 创建新图表
-            window.rankingChartInstance = new Chart(ctx, {
-                type: 'line',
-                data: {
-                    labels: weightPoints,
-                    datasets: datasets
-                },
-                options: {
-                    responsive: true,
-                    plugins: {
-                        title: {
-                            display: true,
-                            text: 'Q Score vs The Weight of Efficacy'
-                        },
-                        legend: {
-                            position: 'bottom'
-                        }
+                // 准备权重数据点（0到1，间隔0.1）
+                const weightPoints = [0, 0.1, 0.25, 0.5, 0.75, 1];
+                console.log("权重数据点:", weightPoints);
+                
+                // 为每个疗法计算不同权重下的Q分数
+                const datasets = therapies.map((therapy, index) => {
+                    const data = weightPoints.map(weight => 
+                        calculateQScoreAtWeight(decisionMatrix, therapies, weight)[index]
+                    );
+                    console.log(`疗法 ${therapy} 的Q分数:`, data);
+                    
+                    return {
+                        label: therapy,
+                        data: data,
+                        borderColor: generateColors(therapies.length)[index],
+                        backgroundColor: 'transparent',
+                        tension: 0.1  // 略微弯曲的线条
+                    };
+                });
+                
+                console.log("准备绘制图表，数据集:", datasets);
+                
+                // 获取图表容器
+                const ctx = document.getElementById('rankingChart').getContext('2d');
+                console.log("获取到图表上下文:", ctx ? "成功" : "失败");
+                
+                // 如果已经存在图表，先销毁
+                if (window.rankingChartInstance) {
+                    console.log("销毁旧图表");
+                    window.rankingChartInstance.destroy();
+                }
+                
+                // 创建新图表
+                console.log("尝试创建新图表");
+                window.rankingChartInstance = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: weightPoints,
+                        datasets: datasets
                     },
-                    scales: {
-                        x: {
+                    options: {
+                        responsive: true,
+                        plugins: {
                             title: {
                                 display: true,
-                                text: 'Efficacy Weight'
+                                text: 'Q Score vs The Weight of Efficacy'
                             },
-                            min: 0,
-                            max: 1
+                            legend: {
+                                position: 'bottom'
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    title: function(tooltipItems) {
+                                        return `Efficacy权重: ${tooltipItems[0].label}`;
+                                    },
+                                    label: function(context) {
+                                        return `${context.dataset.label}: Q Score = ${context.raw.toFixed(4)}`;
+                                    }
+                                }
+                            }
                         },
-                        y: {
-                            title: {
-                                display: true,
-                                text: 'Q Score'
+                        scales: {
+                            x: {
+                                title: {
+                                    display: true,
+                                    text: 'Efficacy Weight (OS+PFS)'
+                                },
+                                min: 0,
+                                max: 1
                             },
-                            min: 0,
-                            max: 1
+                            y: {
+                                title: {
+                                    display: true,
+                                    text: 'Q Score'
+                                },
+                                min: 0,
+                                max: 1
+                            }
                         }
                     }
-                }
-            });
+                });
+                console.log("图表创建成功");
+            } catch (error) {
+                console.error("创建图表时出错:", error);
+                alert("生成图表时发生错误: " + error.message);
+            }
         }
     </script>
 </body>
