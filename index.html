@@ -159,28 +159,28 @@ function weightedNormalizedMatrix(normalizedMatrix, weights) {
 }
 
 // 计算正理想解 (PIS) 和负理想解 (NIS)
-function calculateIdealSolutions(matrix) {
+function calculateIdealSolutions(weightedMatrix) {
     // 所有维度 (OS, PFS, SAE) 都为 "越大越好"
-    const PIS = matrix[0].map((_, colIndex) =>
-        Math.max(...matrix.map(row => row[colIndex]))
+    const PIS = weightedMatrix[0].map((_, colIndex) =>
+        Math.max(...weightedMatrix.map(row => row[colIndex]))
     );
 
-    const NIS = matrix[0].map((_, colIndex) =>
-        Math.min(...matrix.map(row => row[colIndex]))
+    const NIS = weightedMatrix[0].map((_, colIndex) =>
+        Math.min(...weightedMatrix.map(row => row[colIndex]))
     );
 
     return { PIS, NIS };
 }
 
 // 计算正理想距离 (PID) 和负理想距离 (NID)
-function calculateDistances(matrix, PIS, NIS) {
+function calculateDistances(weightedMatrix, PIS, NIS) {
     // 正理想距离: 距离最大值 (PIS)
-    const PID = matrix.map(row =>
+    const PID = weightedMatrix.map(row =>
         Math.sqrt(row.reduce((sum, value, index) => sum + Math.pow(PIS[index] - value, 2), 0))
     );
 
     // 负理想距离: 距离最小值 (NIS)
-    const NID = matrix.map(row =>
+    const NID = weightedMatrix.map(row =>
         Math.sqrt(row.reduce((sum, value, index) => sum + Math.pow(value - NIS[index], 2), 0))
     );
 
@@ -188,35 +188,51 @@ function calculateDistances(matrix, PIS, NIS) {
 }
 
 // 计算相对重要性指数 (Q_i)
-function calculateQScores(normalizedMatrix, weights, PIS, NIS) {
-    const weightedMatrix = weightedNormalizedMatrix(normalizedMatrix, weights);
-    const { PID, NID } = calculateDistances(weightedMatrix, PIS, NIS);
-
-    return PID.map((pid, i) => {
-        const nid = NID[i];
-        return nid / (pid + nid);  // Q_i 计算公式: NID / (PID + NID)
-    });
-}
+function calculateQScores(weightedMatrix, PIS, NIS) {
+        const { PID, NID } = calculateDistances(weightedMatrix, PIS, NIS);
+        return PID.map((pid, i) => {
+            const nid = NID[i];
+            return nid / (pid + nid);
+        });
+    }
 
 // 计算排名 (基于用户权重或默认权重)
 function calculateRanking() {
-    const { therapies, decisionMatrix } = getDecisionMatrixAndTherapies();
-    const weights = getWeights();
-    const normalizedMatrix = normalizeMatrix(decisionMatrix);
-    const { PIS, NIS } = calculateIdealSolutions(normalizedMatrix);
-    const qScores = calculateQScores(normalizedMatrix, weights, PIS, NIS);
-    
-    // 生成排名结果
-    const ranking = therapies.map((therapy, index) => ({
-        therapy,
-        score: qScores[index].toFixed(4)
-    })).sort((a, b) => b.score - a.score);
+        // (1) 获取输入数据
+        const { therapies, decisionMatrix } = getDecisionMatrixAndTherapies();
+        if (therapies.length === 0) {
+            alert("请至少填写一个疗法名称和对应HR值!");
+            return;
+        }
 
-    // 显示结果
-    const resultElement = document.getElementById('result');
-    resultElement.innerHTML = ranking.map(r => `<p>${r.therapy}: Q Score = ${r.score}</p>`).join('');
-}
-        
+        // (2) 获取权重
+        const weights = getWeights();
+
+        // (3) 归一化
+        const normalizedMatrix = normalizeMatrix(decisionMatrix);
+
+        // (4) 加权归一化
+        const weightedMatrix = weightedNormalizedMatrix(normalizedMatrix, weights);
+
+        // (5) 计算PIS, NIS (都在加权后矩阵进行)
+        const { PIS, NIS } = calculateIdealSolutions(weightedMatrix);
+
+        // (6) 计算Q
+        const qScores = calculateQScores(weightedMatrix, PIS, NIS);
+
+        // (7) 排名
+        const ranking = therapies.map((therapy, index) => ({
+            therapy,
+            score: qScores[index].toFixed(4)
+        })).sort((a, b) => b.score - a.score);
+
+        // (8) 显示结果
+        const resultElement = document.getElementById('result');
+        resultElement.innerHTML = ranking.map(r => `<p>${r.therapy}: Q Score = ${r.score}</p>`).join('');
+
+    }
+
+
 // 生成图表数据 (用于一键出图)
 function generateChart() {
     const { therapies, decisionMatrix } = getDecisionMatrixAndTherapies();
