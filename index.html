@@ -231,6 +231,74 @@ function calculateRanking() {
         resultElement.innerHTML = ranking.map(r => `<p>${r.therapy}: Q Score = ${r.score}</p>`).join('');
 
     }
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script>
+    // 生成图表数据 (用于一键出图)
+    function generateChart() {
+        const { therapies, decisionMatrix } = getDecisionMatrixAndTherapies();
+        if (therapies.length === 0) {
+            alert("请至少填写一个疗法名称和对应HR值!");
+            return;
+        }
+
+        // 生成不同权重 (Efficacy Weight) 下的 Q Score 数据
+        const weightSteps = Array.from({ length: 11 }, (_, i) => i * 0.1);
+        const chartData = therapies.map((therapy, index) => {
+            const qScores = weightSteps.map(efficacyWeight => {
+                const weights = [efficacyWeight / 2, efficacyWeight / 2, 1 - efficacyWeight];
+                const normalizedMatrix = normalizeMatrix(decisionMatrix);
+                const weightedMatrix = weightedNormalizedMatrix(normalizedMatrix, weights);
+                const { PIS, NIS } = calculateIdealSolutions(weightedMatrix);
+                const qScores = calculateQScores(weightedMatrix, PIS, NIS);
+                return qScores[index];
+            });
+
+            return { label: therapy, data: qScores };
+        });
+
+        // Chart.js 数据集格式
+        const datasets = chartData.map((item, index) => ({
+            label: item.label,
+            data: item.data,
+            borderColor: `hsl(${(index * 60) % 360}, 70%, 50%)`,
+            fill: false
+        }));
+
+        // 销毁旧图表 (避免多次点击一键出图出现重复图表)
+        if (window.chartInstance) {
+            window.chartInstance.destroy();
+        }
+
+        // 创建图表 Canvas
+        const chartContainer = document.getElementById('chartContainer');
+        if (!chartContainer) {
+            const canvas = document.createElement('canvas');
+            canvas.id = 'chartCanvas';
+            document.body.appendChild(canvas);
+        }
+
+        // 使用 Chart.js 绘制折线图
+        const ctx = document.getElementById('chartCanvas').getContext('2d');
+        window.chartInstance = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: weightSteps.map(w => w.toFixed(2)),
+                datasets: datasets
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: { position: 'bottom' },
+                    title: { display: true, text: 'Q Score vs The Weight of Efficacy' }
+                },
+                scales: {
+                    x: { title: { display: true, text: 'The Weight of Efficacy' } },
+                    y: { title: { display: true, text: 'Q Score' }, min: 0, max: 1 }
+                }
+            }
+        });
+    }
 
     </script>
 </body>
