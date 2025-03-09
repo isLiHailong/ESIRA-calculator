@@ -34,6 +34,7 @@
         
         <div id="os-inputs">
             <h3>Overall Survival (OS)</h3>
+            <!-- 默认添加一行输入 -->
             <div class="input-group">
                 <input type="text" placeholder="疗法名称">
                 <input type="number" placeholder="HR (Hazard Ratio)">
@@ -81,7 +82,7 @@
     <!-- 交互按钮区 -->
     <section>
         <button onclick="calculateRanking()">计算排名</button>
-        <button onclick="generateChart()">一键出图</button>
+        <!-- 如果后续需要添加“一键出图”按钮，可以放在这里 -->
     </section>
 
     <!-- 结果展示区 -->
@@ -89,16 +90,6 @@
         <h2>计算结果</h2>
         <p id="result"></p>
     </section>
-
-    <!-- 在你已有的HTML结构中添加一个区域用来放置图表 -->
-<section>
-    <h2>图表展示区</h2>
-    <div id="chartContainer">
-        <!-- 可以提前放置一块画布 -->
-        <canvas id="chartCanvas"></canvas>
-    </div>
-</section>
-
 
     <script>
         // 动态添加输入框
@@ -112,135 +103,144 @@
             `;
             section.appendChild(div);
         }
-        
+
         // 动态获取前端输入，生成决策矩阵和疗法名称数组
-function getDecisionMatrixAndTherapies() {
-    const osInputs = document.querySelectorAll('#os-inputs .input-group');
-    const pfsInputs = document.querySelectorAll('#pfs-inputs .input-group');
-    const saeInputs = document.querySelectorAll('#sae-inputs .input-group');
+        function getDecisionMatrixAndTherapies() {
+            const osInputs = document.querySelectorAll('#os-inputs .input-group');
+            const pfsInputs = document.querySelectorAll('#pfs-inputs .input-group');
+            const saeInputs = document.querySelectorAll('#sae-inputs .input-group');
 
-    const therapies = [];
-    const decisionMatrix = [];
+            const therapies = [];
+            const decisionMatrix = [];
 
-    osInputs.forEach((inputGroup, index) => {
-        const therapyName = inputGroup.querySelector('input[type="text"]').value.trim();
-        const osHr = parseFloat(inputGroup.querySelector('input[type="number"]').value) || 0;
-        const pfsHr = parseFloat(pfsInputs[index]?.querySelector('input[type="number"]').value) || 0;
-        const saeHr = parseFloat(saeInputs[index]?.querySelector('input[type="number"]').value) || 0;
+            osInputs.forEach((inputGroup, index) => {
+                const therapyName = inputGroup.querySelector('input[type="text"]').value.trim();
+                const osHr = parseFloat(inputGroup.querySelector('input[type="number"]').value) || 0;
+                const pfsHr = parseFloat(pfsInputs[index]?.querySelector('input[type="number"]').value) || 0;
+                const saeHr = parseFloat(saeInputs[index]?.querySelector('input[type="number"]').value) || 0;
 
-        if (therapyName) {
-            therapies.push(therapyName);
-            decisionMatrix.push([osHr, pfsHr, saeHr]);
-        }
-    });
+                if (therapyName) {
+                    therapies.push(therapyName);
+                    decisionMatrix.push([osHr, pfsHr, saeHr]);
+                }
+            });
 
-    return { therapies, decisionMatrix };
-}
-
-// 默认权重设置 (OS, PFS, SAE)
-const defaultWeights = [1 / 3, 1 / 3, 1 / 3];
-
-// 获取权重 (优先用户输入，没有则使用默认值)
-function getWeights() {
-    const osWeight = parseFloat(document.querySelector('input[placeholder="OS 权重"]').value) || defaultWeights[0];
-    const pfsWeight = parseFloat(document.querySelector('input[placeholder="PFS 权重"]').value) || defaultWeights[1];
-    const saeWeight = parseFloat(document.querySelector('input[placeholder="SAE 权重"]').value) || defaultWeights[2];
-
-    const sum = osWeight + pfsWeight + saeWeight;
-    return [osWeight / sum, pfsWeight / sum, saeWeight / sum];
-}
-
-// 归一化决策矩阵
-function normalizeMatrix(matrix) {
-    const columnSums = matrix[0].map((_, colIndex) =>
-        matrix.reduce((sum, row) => sum + row[colIndex], 0)
-    );
-
-    return matrix.map(row =>
-        row.map((value, colIndex) => value / columnSums[colIndex])
-    );
-}
-
-// 计算加权归一化决策矩阵
-function weightedNormalizedMatrix(normalizedMatrix, weights) {
-    return normalizedMatrix.map(row =>
-        row.map((value, colIndex) => value * weights[colIndex])
-    );
-}
-
-// 计算正理想解 (PIS) 和负理想解 (NIS)
-function calculateIdealSolutions(weightedMatrix) {
-    // 所有维度 (OS, PFS, SAE) 都为 "越大越好"
-    const PIS = weightedMatrix[0].map((_, colIndex) =>
-        Math.max(...weightedMatrix.map(row => row[colIndex]))
-    );
-
-    const NIS = weightedMatrix[0].map((_, colIndex) =>
-        Math.min(...weightedMatrix.map(row => row[colIndex]))
-    );
-
-    return { PIS, NIS };
-}
-
-// 计算正理想距离 (PID) 和负理想距离 (NID)
-function calculateDistances(weightedMatrix, PIS, NIS) {
-    // 正理想距离: 距离最大值 (PIS)
-    const PID = weightedMatrix.map(row =>
-        Math.sqrt(row.reduce((sum, value, index) => sum + Math.pow(PIS[index] - value, 2), 0))
-    );
-
-    // 负理想距离: 距离最小值 (NIS)
-    const NID = weightedMatrix.map(row =>
-        Math.sqrt(row.reduce((sum, value, index) => sum + Math.pow(value - NIS[index], 2), 0))
-    );
-
-    return { PID, NID };
-}
-
-// 计算相对重要性指数 (Q_i)
-function calculateQScores(weightedMatrix, PIS, NIS) {
-        const { PID, NID } = calculateDistances(weightedMatrix, PIS, NIS);
-        return PID.map((pid, i) => {
-            const nid = NID[i];
-            return nid / (pid + nid);
-        });
-    }
-
-// 计算排名 (基于用户权重或默认权重)
-function calculateRanking() {
-        // (1) 获取输入数据
-        const { therapies, decisionMatrix } = getDecisionMatrixAndTherapies();
-        if (therapies.length === 0) {
-            alert("请至少填写一个疗法名称和对应HR值!");
-            return;
+            return { therapies, decisionMatrix };
         }
 
-        // (2) 获取权重
-        const weights = getWeights();
+        // 默认权重设置 (OS, PFS, SAE)
+        const defaultWeights = [1 / 3, 1 / 3, 1 / 3];
 
-        // (3) 归一化
-        const normalizedMatrix = normalizeMatrix(decisionMatrix);
+        // 获取权重 (优先用户输入，没有则使用默认值)
+        function getWeights() {
+            const osWeight = parseFloat(document.querySelector('input[placeholder="OS 权重"]').value) || defaultWeights[0];
+            const pfsWeight = parseFloat(document.querySelector('input[placeholder="PFS 权重"]').value) || defaultWeights[1];
+            const saeWeight = parseFloat(document.querySelector('input[placeholder="SAE 权重"]').value) || defaultWeights[2];
 
-        // (4) 加权归一化
-        const weightedMatrix = weightedNormalizedMatrix(normalizedMatrix, weights);
+            const sum = osWeight + pfsWeight + saeWeight;
+            // 避免出现 sum = 0 的情况
+            if (sum === 0) {
+                alert("权重之和不能为0，已使用默认权重 [1/3,1/3,1/3]");
+                return defaultWeights;
+            }
+            return [osWeight / sum, pfsWeight / sum, saeWeight / sum];
+        }
 
-        // (5) 计算PIS, NIS (都在加权后矩阵进行)
-        const { PIS, NIS } = calculateIdealSolutions(weightedMatrix);
+        // 归一化决策矩阵
+        function normalizeMatrix(matrix) {
+            const columnSums = matrix[0].map((_, colIndex) =>
+                matrix.reduce((sum, row) => sum + row[colIndex], 0)
+            );
 
-        // (6) 计算Q
-        const qScores = calculateQScores(weightedMatrix, PIS, NIS);
+            return matrix.map(row =>
+                row.map((value, colIndex) => {
+                    const denom = columnSums[colIndex];
+                    return denom === 0 ? 0 : value / denom; // 避免出现除以0
+                })
+            );
+        }
 
-        // (7) 排名
-        const ranking = therapies.map((therapy, index) => ({
-            therapy,
-            score: qScores[index].toFixed(4)
-        })).sort((a, b) => b.score - a.score);
+        // 计算加权归一化决策矩阵
+        function weightedNormalizedMatrix(normalizedMatrix, weights) {
+            return normalizedMatrix.map(row =>
+                row.map((value, colIndex) => value * weights[colIndex])
+            );
+        }
 
-        // (8) 显示结果
-        const resultElement = document.getElementById('result');
-        resultElement.innerHTML = ranking.map(r => `<p>${r.therapy}: Q Score = ${r.score}</p>`).join('');
+        // 计算正理想解 (PIS) 和负理想解 (NIS)
+        function calculateIdealSolutions(weightedMatrix) {
+            // 所有维度 (OS, PFS, SAE) 都为 "越大越好"
+            const PIS = weightedMatrix[0].map((_, colIndex) =>
+                Math.max(...weightedMatrix.map(row => row[colIndex]))
+            );
 
-    }
+            const NIS = weightedMatrix[0].map((_, colIndex) =>
+                Math.min(...weightedMatrix.map(row => row[colIndex]))
+            );
+
+            return { PIS, NIS };
+        }
+
+        // 计算正理想距离 (PID) 和负理想距离 (NID)
+        function calculateDistances(weightedMatrix, PIS, NIS) {
+            // 正理想距离: 距离最大值 (PIS)
+            const PID = weightedMatrix.map(row =>
+                Math.sqrt(row.reduce((sum, value, index) => sum + Math.pow(PIS[index] - value, 2), 0))
+            );
+
+            // 负理想距离: 距离最小值 (NIS)
+            const NID = weightedMatrix.map(row =>
+                Math.sqrt(row.reduce((sum, value, index) => sum + Math.pow(value - NIS[index], 2), 0))
+            );
+
+            return { PID, NID };
+        }
+
+        // 计算相对重要性指数 (Q_i)
+        function calculateQScores(weightedMatrix, PIS, NIS) {
+            const { PID, NID } = calculateDistances(weightedMatrix, PIS, NIS);
+            return PID.map((pid, i) => {
+                const nid = NID[i];
+                return nid / (pid + nid);  // Q_i = NID / (PID + NID)
+            });
+        }
+
+        // 计算排名 (基于用户权重或默认权重)
+        function calculateRanking() {
+            // 1. 获取输入数据
+            const { therapies, decisionMatrix } = getDecisionMatrixAndTherapies();
+            if (therapies.length === 0) {
+                alert("请至少填写一个疗法名称和对应HR值!");
+                return;
+            }
+
+            // 2. 获取权重
+            const weights = getWeights();
+
+            // 3. 归一化
+            const normalizedMatrix = normalizeMatrix(decisionMatrix);
+
+            // 4. 加权归一化
+            const weightedMatrix = weightedNormalizedMatrix(normalizedMatrix, weights);
+
+            // 5. 计算PIS, NIS
+            const { PIS, NIS } = calculateIdealSolutions(weightedMatrix);
+
+            // 6. 计算Q
+            const qScores = calculateQScores(weightedMatrix, PIS, NIS);
+
+            // 7. 排名
+            const ranking = therapies.map((therapy, index) => ({
+                therapy,
+                score: qScores[index].toFixed(4)
+            })).sort((a, b) => b.score - a.score);
+
+            // 8. 显示结果
+            const resultElement = document.getElementById('result');
+            resultElement.innerHTML = ranking
+                .map(r => `<p>${r.therapy}: Q Score = ${r.score}</p>`)
+                .join('');
+        }
     </script>
 </body>
 </html>
