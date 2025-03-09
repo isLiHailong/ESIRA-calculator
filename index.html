@@ -232,26 +232,6 @@ function calculateRanking() {
 
     }
 
-
-// 生成图表数据 (用于一键出图)
-function generateChart() {
-    const { therapies, decisionMatrix } = getDecisionMatrixAndTherapies();
-    const weightSteps = Array.from({ length: 11 }, (_, i) => i * 0.1);
-    const chartData = therapies.map((therapy, index) => {
-        const qScores = weightSteps.map(efficacyWeight => {
-            const weights = [efficacyWeight / 2, efficacyWeight / 2, 1 - efficacyWeight];
-            const normalizedMatrix = normalizeMatrix(decisionMatrix);
-            const { PIS, NIS } = calculateIdealSolutions(normalizedMatrix);
-            const qScores = calculateQScores(normalizedMatrix, weights, PIS, NIS);
-            return qScores[index];
-        });
-
-        return { label: therapy, data: qScores };
-    });
-
-    console.log('图表数据:', chartData);
-    alert('图表数据已生成，在控制台查看！');
-}
     </script>
 </body>
 </html>
