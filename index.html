@@ -3,9 +3,117 @@
 <head>
     <meta charset="UTF-8">
     <title>ESIRA Calculator</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        h1, h2 {
+            color: #333;
+        }
+        .input-group {
+            margin-bottom: 10px;
+        }
+        input[type="text"], input[type="number"] {
+            padding: 5px;
+            margin-right: 10px;
+            width: 200px;
+        }
+        button {
+            padding: 8px 12px;
+            margin: 10px 0;
+        }
+    </style>
 </head>
 <body>
     <h1>ESIRA Calculator</h1>
-    <p>欢迎使用 Efficacy-Safety Integrated Ranking Algorithm (ESIRA) 计算器！</p>
+    
+    <!-- 输入参数区 -->
+    <section>
+        <h2>有效性 (Efficacy)</h2>
+        
+        <div id="os-inputs">
+            <h3>Overall Survival (OS)</h3>
+            <div class="input-group">
+                <input type="text" placeholder="疗法名称">
+                <input type="number" placeholder="HR (Hazard Ratio)">
+            </div>
+        </div>
+        <button onclick="addInput('os-inputs')">添加更多疗法 (OS)</button>
+        
+        <div id="pfs-inputs">
+            <h3>Progression-Free Survival (PFS)</h3>
+            <div class="input-group">
+                <input type="text" placeholder="疗法名称">
+                <input type="number" placeholder="HR (Hazard Ratio)">
+            </div>
+        </div>
+        <button onclick="addInput('pfs-inputs')">添加更多疗法 (PFS)</button>
+        
+        <h2>安全性 (Safety)</h2>
+        <div id="sae-inputs">
+            <h3>Serious Adverse Events (SAE)</h3>
+            <div class="input-group">
+                <input type="text" placeholder="疗法名称">
+                <input type="number" placeholder="HR (Hazard Ratio)">
+            </div>
+        </div>
+        <button onclick="addInput('sae-inputs')">添加更多疗法 (SAE)</button>
+    </section>
+
+    <!-- 临床终点权重设置 -->
+    <section>
+        <h2>临床终点权重设置</h2>
+        <div class="input-group">
+            <label>OS 权重: </label>
+            <input type="number" placeholder="OS 权重">
+        </div>
+        <div class="input-group">
+            <label>PFS 权重: </label>
+            <input type="number" placeholder="PFS 权重">
+        </div>
+        <div class="input-group">
+            <label>SAE 权重: </label>
+            <input type="number" placeholder="SAE 权重">
+        </div>
+    </section>
+
+    <!-- 交互按钮区 -->
+    <section>
+        <button onclick="calculateRanking()">计算排名</button>
+        <button onclick="generateChart()">一键出图</button>
+    </section>
+
+    <!-- 结果展示区 -->
+    <section>
+        <h2>计算结果</h2>
+        <p id="result"></p>
+    </section>
+
+    <script>
+        // 动态添加输入框
+        function addInput(sectionId) {
+            const section = document.getElementById(sectionId);
+            const div = document.createElement('div');
+            div.className = 'input-group';
+            div.innerHTML = `
+                <input type="text" placeholder="疗法名称">
+                <input type="number" placeholder="HR (Hazard Ratio)">
+            `;
+            section.appendChild(div);
+        }
+
+        // 示例：计算排名的逻辑 (占位)
+        function calculateRanking() {
+            document.getElementById('result').innerText = '计算结果示例：100';
+        }
+
+        // 示例：出图逻辑 (占位)
+        function generateChart() {
+            alert('一键出图功能暂未实现');
+        }
+    </script>
 </body>
 </html>
+
+
