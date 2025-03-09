@@ -160,12 +160,15 @@ function weightedNormalizedMatrix(normalizedMatrix, weights) {
 
 // 计算正理想解 (PIS) 和负理想解 (NIS)
 function calculateIdealSolutions(matrix) {
+    // 所有维度 (OS, PFS, SAE) 都为 "越大越好"
     const PIS = matrix[0].map((_, colIndex) =>
         Math.max(...matrix.map(row => row[colIndex]))
     );
+
     const NIS = matrix[0].map((_, colIndex) =>
         Math.min(...matrix.map(row => row[colIndex]))
     );
+
     return { PIS, NIS };
 }
 
@@ -189,7 +192,7 @@ function calculateQScores(normalizedMatrix, weights, PIS, NIS) {
 
     return PID.map((pid, i) => {
         const nid = NID[i];
-        return nid / (pid + nid);  // Q_i 计算公式
+        return nid / (pid + nid);  // Q_i 计算公式: NID / (PID + NID)
     });
 }
 
@@ -200,7 +203,7 @@ function calculateRanking() {
     const normalizedMatrix = normalizeMatrix(decisionMatrix);
     const { PIS, NIS } = calculateIdealSolutions(normalizedMatrix);
     const qScores = calculateQScores(normalizedMatrix, weights, PIS, NIS);
-
+    
     // 生成排名结果
     const ranking = therapies.map((therapy, index) => ({
         therapy,
